@@ -1,0 +1,67 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum JobStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  DELAYED_RATE_LIMIT
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  name           String?
+  avatar         String?
+  googleId       String          @unique
+  slackToken     String?
+  slackChannel   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  emailJobs      EmailJob[]
+  senderAccounts SenderAccount[]
+}
+
+model SenderAccount {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderEmail String
+  smtpHost    String     @default("smtp.ethereal.email")
+  smtpPort    Int        @default(587)
+  smtpUser    String
+  smtpPass    String
+  createdAt   DateTime   @default(now())
+  emailJobs   EmailJob[]
+
+  @@unique([userId, senderEmail])
+}
+
+model EmailJob {
+  id                 String        @id @default(uuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId           String
+  sender             SenderAccount @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  recipientEmail     String
+  subject            String
+  bodyText           String
+  bullJobId          String        @unique
+  status             JobStatus     @default(SCHEDULED)
+  scheduledAt        DateTime
+  sentAt             DateTime?
+  failedReason       String?
+  etherealPreviewUrl String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([userId, status])
+  @@index([scheduledAt])
+  @@index([recipientEmail])
+}
